@@ -129,14 +129,14 @@ QPushButton#danger:hover {
 }
 QComboBox::drop-down {
     border: none;
-    width: 30px;
+    width: 24px;
 }
 QComboBox::down-arrow {
-    image: none;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 6px solid #8888aa;
-    margin-right: 8px;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #8888aa;
 }
 QComboBox QAbstractItemView {
     background-color: #222244;
@@ -242,7 +242,6 @@ class SettingsWindow(QDialog):
 
         # Gemini model selection
         self._gemini_model_combo = QComboBox()
-        self._gemini_model_combo.setEditable(True)  # Allow manual input
         self._gemini_model_combo.setPlaceholderText("Enter API Key and click Fetch Models")
         gemini_form.addRow("Gemini Model：", self._gemini_model_combo)
 
@@ -322,8 +321,9 @@ class SettingsWindow(QDialog):
             if idx >= 0:
                 self._gemini_model_combo.setCurrentIndex(idx)
             else:
-                # Model not in list, add it manually
-                self._gemini_model_combo.setCurrentText(saved_model)
+                # Model not in list, add it and select it
+                self._gemini_model_combo.addItem(saved_model)
+                self._gemini_model_combo.setCurrentIndex(self._gemini_model_combo.count() - 1)
 
         # Log level
         idx = self._log_level_combo.findText(self._config.log_level)

@@ -96,10 +96,10 @@ class AppController:
         self._logger.info(f"Hotkey pressed (translate={translate})")
         self._pipeline.start_recording(translate=translate)
 
-    def _on_hotkey_released(self):
+    def _on_hotkey_released(self, translate: bool):
         """快捷鍵放開 → 停止錄音，啟動處理。"""
-        self._logger.info("Hotkey released")
-        self._pipeline.stop_recording()
+        self._logger.info(f"Hotkey released (translate={translate})")
+        self._pipeline.stop_recording(translate=translate)
 
     # ── State handlers ────────────────────────────────────
 

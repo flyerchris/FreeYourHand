@@ -23,7 +23,7 @@ class HotkeyListener(QObject):
     """
 
     key_pressed = pyqtSignal(bool)   # True = translate mode (shift held)
-    key_released = pyqtSignal()
+    key_released = pyqtSignal(bool)  # True = translate mode (shift was pressed during recording)
     listener_error = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -31,6 +31,7 @@ class HotkeyListener(QObject):
         self._listener: keyboard.Listener | None = None
         self._hotkey_pressed = False
         self._shift_pressed = False
+        self._shift_during_recording = False  # Shift pressed at any point during recording
         self._config = Config()
         self._running = False
 
@@ -96,10 +97,15 @@ class HotkeyListener(QObject):
         # Track shift state
         if self._is_shift(key):
             self._shift_pressed = True
+            # If hotkey is already held, mark translate mode
+            if self._hotkey_pressed:
+                self._shift_during_recording = True
+                logger.debug("Shift pressed during recording → translate mode")
 
         # Hotkey pressed
         if self._is_hotkey(key) and not self._hotkey_pressed:
             self._hotkey_pressed = True
+            self._shift_during_recording = self._shift_pressed
             translate_mode = self._shift_pressed
             logger.debug(f"Hotkey pressed (translate={translate_mode})")
             self.key_pressed.emit(translate_mode)
@@ -116,5 +122,7 @@ class HotkeyListener(QObject):
         # Hotkey released
         if self._is_hotkey(key) and self._hotkey_pressed:
             self._hotkey_pressed = False
-            logger.debug("Hotkey released")
-            self.key_released.emit()
+            translate = self._shift_during_recording
+            self._shift_during_recording = False
+            logger.debug(f"Hotkey released (translate={translate})")
+            self.key_released.emit(translate)

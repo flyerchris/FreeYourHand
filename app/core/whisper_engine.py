@@ -35,7 +35,7 @@ class WhisperEngine(QObject):
         name = model_name or self._config.whisper_model
         return WHISPER_MODELS.get(name, WHISPER_MODELS[DEFAULT_WHISPER_MODEL])
 
-    def transcribe(self, audio_path: str, language: str | None = None) -> str | None:
+    def transcribe(self, audio_path: str, language: str | None = "zh") -> str | None:
         """
         執行語音辨識（同步）。
         回傳辨識文字或 None。

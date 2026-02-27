@@ -139,11 +139,16 @@ class Pipeline(QObject):
         self._set_state(PipelineState.RECORDING)
         self.recorder.start()
 
-    def stop_recording(self):
+    def stop_recording(self, translate: bool = False):
         """使用者放開快捷鍵 → 停止錄音，啟動處理。"""
         if self._state != PipelineState.RECORDING:
             logger.warning(f"Cannot stop recording in state {self._state}")
             return
+
+        # Use translate if Shift was pressed at any point during recording
+        if translate:
+            self._translate_mode = True
+            logger.info("Translate mode activated (Shift was pressed during recording)")
 
         audio_path = self.recorder.stop()
 
