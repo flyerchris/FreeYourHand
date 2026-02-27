@@ -1,0 +1,205 @@
+# Implementation Plan: FreeYourHand
+
+Mac 語音輸入潤稿工具 — 結合本地 Whisper 辨識與 Gemini API 校對，實現「語音輸入 → 精確還原 → 即時貼上」。
+
+## User Review Required
+
+> [!IMPORTANT]
+> 本工具需要 **Gemini API Key** 才能使用校對功能。請確認你有可用的 Gemini API Key。
+
+> [!WARNING]
+> 本應用需要 macOS **輔助使用 (Accessibility)** 與 **麥克風 (Microphone)** 權限。首次啟動時會引導授權。
+
+---
+
+## Proposed Changes
+
+### 專案結構總覽
+
+```
+FreeYourHand/
+├── main.py                    # 應用入口
+├── requirements.txt           # 依賴列表
+├── setup.py                   # py2app 打包設定
+├── resources/
+│   └── icon.png               # Menu bar icon
+├── app/
+│   ├── __init__.py
+│   ├── constants.py           # 全局常數 & 預設配置
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── audio_recorder.py  # 麥克風錄音 (pyaudio)
+│   │   ├── hotkey_listener.py # 全局快捷鍵監聽 (pynput)
+│   │   ├── whisper_engine.py  # mlx-whisper 辨識引擎
+│   │   ├── gemini_client.py   # Gemini API 校對模組
+│   │   ├── pipeline.py        # AI 處理流水線 (串接辨識+校對)
+│   │   └── clipboard.py       # 剪貼簿 + Cmd+V 模擬
+│   ├── ui/
+│   │   ├── __init__.py
+│   │   ├── overlay_window.py  # 底部透明視窗 (聲紋 + 狀態)
+│   │   ├── waveform_widget.py # 聲紋動畫 Widget
+│   │   ├── settings_window.py # 設定視窗
+│   │   ├── model_manager_dialog.py # 模型下載管理 UI
+│   │   ├── log_viewer.py      # 日誌查看器
+│   │   └── tray_icon.py       # Mac 選單列圖示
+│   └── utils/
+│       ├── __init__.py
+│       ├── logger.py          # 全局日誌系統
+│       ├── permissions.py     # 權限檢查
+│       └── config.py          # 設定持久化 (QSettings)
+└── tests/
+    └── test_pipeline.py       # 基礎測試
+```
+
+---
+
+### 1. Project Foundation
+
+#### [NEW] [requirements.txt](file:///Users/leon/antigravity/FreeYourHand/requirements.txt)
+```
+PyQt6>=6.6.0
+pyaudio>=0.2.14
+pynput>=1.7.6
+mlx-whisper>=0.4.0
+google-genai>=1.0.0
+pyperclip>=1.8.2
+pyobjc-framework-Cocoa>=10.0
+```
+
+#### [NEW] [main.py](file:///Users/leon/antigravity/FreeYourHand/main.py)
+- 應用入口，初始化 `QApplication`、載入設定、建立系統托盤、啟動主迴圈
+- 首次啟動時引導權限設定 & 模型下載
+
+#### [NEW] [app/constants.py](file:///Users/leon/antigravity/FreeYourHand/app/constants.py)
+- 預設快捷鍵定義 (`Right Option`)
+- Whisper 可用模型列表
+- Gemini Prompt 模板（精確還原模式 & 翻譯模式）
+- UI 顏色定義 & 動畫參數
+
+---
+
+### 2. Core Engine
+
+#### [NEW] [audio_recorder.py](file:///Users/leon/antigravity/FreeYourHand/app/core/audio_recorder.py)
+- 使用 `pyaudio` 進行麥克風即時錄音
+- 分離音訊串流，同步計算 RMS 能量值用於聲紋動畫
+- 錄音結果暫存為 WAV 檔送入 Whisper
+
+#### [NEW] [hotkey_listener.py](file:///Users/leon/antigravity/FreeYourHand/app/core/hotkey_listener.py)
+- 使用 `pynput` 監聽全局鍵盤事件
+- 偵測 Right Option 長按 & 釋放事件
+- 同時偵測 Shift 按住切換翻譯模式
+- 發射 Qt Signal 通知 UI 層
+
+#### [NEW] [whisper_engine.py](file:///Users/leon/antigravity/FreeYourHand/app/core/whisper_engine.py)
+- 封裝 `mlx_whisper.transcribe()` 呼叫
+- 支援模型選擇 & 自動下載
+- 提供模型快取路徑查詢 & 清理
+- 辨識完成後回傳逐字稿文字
+
+#### [NEW] [gemini_client.py](file:///Users/leon/antigravity/FreeYourHand/app/core/gemini_client.py)
+- 使用 `google-genai` SDK 連接 Gemini API
+- 兩種模式 Prompt：
+  - **精確還原**：修正同音字、加標點、去贅詞，嚴禁改寫語氣
+  - **翻譯模式**：精確翻譯為英文
+- 支援 API Key 認證
+
+#### [NEW] [pipeline.py](file:///Users/leon/antigravity/FreeYourHand/app/core/pipeline.py)
+- 串接 `AudioRecorder → WhisperEngine → GeminiClient → Clipboard`
+- 使用 `QThread` 非同步執行，避免阻塞 UI
+- 透過 Signal 機制通知 UI 更新狀態（錄音中 → 辨識中 → 校對中 → 完成）
+
+#### [NEW] [clipboard.py](file:///Users/leon/antigravity/FreeYourHand/app/core/clipboard.py)
+- 使用 `pyperclip` 寫入剪貼簿
+- 使用 `pyobjc` 或 `osascript` 模擬 `Cmd+V` 貼上至當前游標處
+
+---
+
+### 3. UI Layer
+
+#### [NEW] [overlay_window.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/overlay_window.py)
+- 透明、無邊框、置頂的底部懸浮窗
+- 狀態機：`IDLE → RECORDING → PROCESSING → DONE`
+- 錄音中顯示聲紋動畫，處理中顯示旋轉動畫
+- 使用深色毛玻璃風格，圓角設計
+
+#### [NEW] [waveform_widget.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/waveform_widget.py)
+- 自繪 Widget (QPainter)，60fps 動態能量條
+- 多條柱狀圖隨機分布，高度根據 RMS 值動態變化
+- 漸層色彩（青色 → 藍紫色）
+
+#### [NEW] [settings_window.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/settings_window.py)
+- Tab 式設定：General / AI / Advanced
+  - **General**：快捷鍵設定、啟動行為
+  - **AI**：Gemini API Key 輸入、模型選擇、自定義 Prompt
+  - **Advanced**：日誌層級、快取管理
+- 深色主題，現代感 UI
+
+#### [NEW] [model_manager_dialog.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/model_manager_dialog.py)
+- 列出可用 Whisper 模型及大小
+- 進度條顯示下載狀態
+- 快取檢查：已下載模型標記 ✅
+
+#### [NEW] [log_viewer.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/log_viewer.py)
+- 即時顯示日誌串流 (tail -f 風格)
+- 支援依 level 過濾（INFO / WARNING / ERROR）
+
+#### [NEW] [tray_icon.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/tray_icon.py)
+- Mac 選單列圖示，深色 + 淺色模式自適應
+- 右鍵選單：Settings / Log / About / Quit
+
+---
+
+### 4. Utilities
+
+#### [NEW] [logger.py](file:///Users/leon/antigravity/FreeYourHand/app/utils/logger.py)
+- 基於 Python `logging` 的全局日誌
+- 同時輸出到 Console 和日誌檔案
+- 自訂 Signal Handler，將日誌推送至 LogViewer UI
+
+#### [NEW] [permissions.py](file:///Users/leon/antigravity/FreeYourHand/app/utils/permissions.py)
+- 檢查麥克風權限 (透過嘗試開啟音訊裝置)
+- 檢查輔助使用權限 (透過 pyobjc AXIsProcessTrusted)
+- 未授權時顯示引導對話框
+
+#### [NEW] [config.py](file:///Users/leon/antigravity/FreeYourHand/app/utils/config.py)
+- 使用 `QSettings` 持久化所有設定
+- 預設值管理
+- 設定變更 Signal 通知
+
+---
+
+### 5. Packaging
+
+#### [NEW] [setup.py](file:///Users/leon/antigravity/FreeYourHand/setup.py)
+- `py2app` 打包設定
+- 包含 `Info.plist` 權限描述
+- 產出 `FreeYourHand.app`
+
+---
+
+## Verification Plan
+
+### Automated Tests
+由於此工具高度依賴系統權限（麥克風、輔助使用）與硬體裝置，自動化測試範圍有限，主要覆蓋邏輯單元：
+
+```bash
+# 執行單元測試
+cd /Users/leon/antigravity/FreeYourHand
+python -m pytest tests/ -v
+```
+
+### Manual Verification
+**這是此專案的主要驗證方式，需以下步驟逐一確認：**
+
+1. **啟動應用** — 執行 `python main.py`，確認系統托盤圖示出現
+2. **權限檢查** — 首次啟動應提示麥克風 & 輔助使用權限
+3. **聲紋動畫** — 長按 Right Option，確認底部出現聲紋動畫，說話時動態跳動
+4. **語音辨識** — 說幾句話後放開按鍵，確認顯示處理中動畫
+5. **文字貼上** — 辨識完成後，確認文字自動貼至游標處
+6. **翻譯模式** — 長按 Right Option + Shift，確認輸出為英文翻譯
+7. **設定視窗** — 從選單列進入 Settings，確認可輸入 API Key、切換模型
+8. **日誌查看** — 從選單列開啟 Log Viewer，確認有即時日誌
+
+> [!TIP]
+> 建議分階段驗證，每完成一個 Phase 就先測試該階段功能，而非等全部完成再一次性測試。

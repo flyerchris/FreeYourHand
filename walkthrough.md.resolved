@@ -1,0 +1,78 @@
+# Walkthrough: FreeYourHand
+
+## What Was Built
+
+**FreeYourHand** — 一個完整的 Mac 語音輸入潤稿工具，結合本地 Whisper 辨識與 Gemini AI 校對。
+
+### Architecture
+
+```mermaid
+graph LR
+    HK[HotkeyListener<br/>pynput] -->|key_pressed| P[Pipeline]
+    P -->|start| AR[AudioRecorder<br/>pyaudio]
+    AR -->|WAV file| WE[WhisperEngine<br/>mlx-whisper]
+    WE -->|transcript| GC[GeminiClient<br/>google-genai]
+    GC -->|polished text| CB[ClipboardManager<br/>pbcopy + osascript]
+    AR -->|RMS signal| OW[OverlayWindow]
+    P -->|state_changed| OW
+    P -->|state_changed| TI[TrayIcon]
+```
+
+### Files Created (19 source files)
+
+| Layer | File | Description |
+|-------|------|-------------|
+| Entry | [main.py](file:///Users/leon/antigravity/FreeYourHand/main.py) | AppController, first-launch guide, signal wiring |
+| Config | [constants.py](file:///Users/leon/antigravity/FreeYourHand/app/constants.py) | All defaults, prompts, UI params |
+| Core | [audio_recorder.py](file:///Users/leon/antigravity/FreeYourHand/app/core/audio_recorder.py) | Microphone recording with RMS |
+| Core | [hotkey_listener.py](file:///Users/leon/antigravity/FreeYourHand/app/core/hotkey_listener.py) | Right Option + Shift detection |
+| Core | [whisper_engine.py](file:///Users/leon/antigravity/FreeYourHand/app/core/whisper_engine.py) | MLX Whisper transcription |
+| Core | [gemini_client.py](file:///Users/leon/antigravity/FreeYourHand/app/core/gemini_client.py) | Gemini API polishing |
+| Core | [pipeline.py](file:///Users/leon/antigravity/FreeYourHand/app/core/pipeline.py) | Async state machine orchestrator |
+| Core | [clipboard.py](file:///Users/leon/antigravity/FreeYourHand/app/core/clipboard.py) | pbcopy + Cmd+V simulation |
+| UI | [overlay_window.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/overlay_window.py) | Transparent bottom overlay |
+| UI | [waveform_widget.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/waveform_widget.py) | 60fps animated energy bars |
+| UI | [settings_window.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/settings_window.py) | Dark-themed tabbed settings |
+| UI | [model_manager_dialog.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/model_manager_dialog.py) | Whisper model download/manage |
+| UI | [log_viewer.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/log_viewer.py) | Real-time log viewer |
+| UI | [tray_icon.py](file:///Users/leon/antigravity/FreeYourHand/app/ui/tray_icon.py) | Menu bar icon & context menu |
+| Utils | [logger.py](file:///Users/leon/antigravity/FreeYourHand/app/utils/logger.py) | Console + file + Qt signal logging |
+| Utils | [config.py](file:///Users/leon/antigravity/FreeYourHand/app/utils/config.py) | QSettings persistent config |
+| Utils | [permissions.py](file:///Users/leon/antigravity/FreeYourHand/app/utils/permissions.py) | macOS permission checks |
+| Build | [setup.py](file:///Users/leon/antigravity/FreeYourHand/setup.py) | py2app packaging config |
+| Deps | [requirements.txt](file:///Users/leon/antigravity/FreeYourHand/requirements.txt) | Project dependencies |
+
+---
+
+## How to Run
+
+### 1. Install Dependencies
+```bash
+cd /Users/leon/antigravity/FreeYourHand
+pip install -r requirements.txt
+```
+
+> [!IMPORTANT]
+> 需要先安裝 `portaudio`（pyaudio 的依賴）：`brew install portaudio`
+
+### 2. Run in Development Mode
+```bash
+python main.py
+```
+
+### 3. Build Standalone App
+```bash
+python setup.py py2app
+```
+
+---
+
+## Key Design Decisions
+
+1. **Pipeline State Machine** — `IDLE → RECORDING → TRANSCRIBING → POLISHING → PASTING → DONE` 確保整個流程有明確狀態，UI 可以根據狀態展示對應的動畫。
+
+2. **QThread for Processing** — 辨識和校對在背景線程執行，主線程保持 UI 流暢。
+
+3. **Prompt 設計** — 精確還原模式的 Prompt 特別強調「嚴禁改寫語氣」，確保使用者的真實表達被保留。
+
+4. **pbcopy + osascript** — 使用 macOS 原生工具處理剪貼簿和按鍵模擬，比 Python-only 方案更可靠。
