@@ -4,3 +4,4 @@ env/
 ENV/
 *.pyc
 __pycache__/
+./venv/bin/activate
