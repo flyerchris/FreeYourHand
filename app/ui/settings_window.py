@@ -211,7 +211,11 @@ class SettingsWindow(QDialog):
 
         form.addRow("觸發鍵：", self._hotkey_edit)
 
-        hint = QLabel("預設為右側 Option 鍵 (⌥)。長按開始錄音，放開結束。")
+        hint = QLabel(
+            "預設為右側 Option 鍵 (⌥)。長按開始錄音，放開結束。\n"
+            "錄音時按 Shift → 翻譯為英文。\n"
+            "隨時按 ESC → 取消當前操作。"
+        )
         hint.setStyleSheet("color: #666688; font-size: 11px;")
         hint.setWordWrap(True)
         form.addRow(hint)

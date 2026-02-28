@@ -44,6 +44,11 @@ class ProcessingWorker(QObject):
         self.whisper = whisper
         self.gemini = gemini
         self.clipboard = clipboard
+        self._cancelled = False
+
+    def cancel(self):
+        """標記取消，讓 run() 在下個檢查點中斷。"""
+        self._cancelled = True
 
     def run(self):
         """執行完整處理流程。"""
@@ -57,6 +62,10 @@ class ProcessingWorker(QObject):
             # Clean up temp audio file
             self.whisper.cleanup_temp_file(self.audio_path)
 
+            if self._cancelled:
+                logger.info("Pipeline cancelled after transcription")
+                return
+
             if not transcript:
                 self.error_occurred.emit("No speech detected")
                 self.state_changed.emit(PipelineState.ERROR)
@@ -67,7 +76,15 @@ class ProcessingWorker(QObject):
             self.state_changed.emit(PipelineState.POLISHING)
             logger.info("Pipeline: polishing...")
 
+            if self._cancelled:
+                logger.info("Pipeline cancelled before polishing")
+                return
+
             result = self.gemini.polish(transcript, translate=self.translate)
+
+            if self._cancelled:
+                logger.info("Pipeline cancelled after polishing")
+                return
 
             if not result:
                 # Fallback to raw transcript
@@ -86,6 +103,9 @@ class ProcessingWorker(QObject):
             logger.info(f"Pipeline complete: {result[:60]}...")
 
         except Exception as e:
+            if self._cancelled:
+                logger.info("Pipeline cancelled (exception during processing)")
+                return
             error_msg = f"Pipeline error: {e}"
             logger.error(error_msg)
             self.error_occurred.emit(error_msg)
@@ -160,12 +180,34 @@ class Pipeline(QObject):
         self._start_processing(audio_path, self._translate_mode)
 
     def cancel(self):
-        """取消當前操作。"""
+        """取消當前操作（ESC 鍵觸發），並清除暫存錄音檔。"""
+        if self._state == PipelineState.IDLE:
+            return
+
         if self._state == PipelineState.RECORDING:
-            self.recorder.stop()
-        # Note: can't easily cancel running inference, just reset state
+            audio_path = self.recorder.stop()
+            # Clean up the recorded temp file
+            if audio_path:
+                self._cleanup_audio(audio_path)
+
+        # Cancel background worker if running
+        if self._worker:
+            # Clean up its audio file too
+            if hasattr(self._worker, 'audio_path') and self._worker.audio_path:
+                self._cleanup_audio(self._worker.audio_path)
+            self._worker.cancel()
+
         self._set_state(PipelineState.IDLE)
-        logger.info("Pipeline cancelled")
+        logger.info("Pipeline cancelled by user (ESC)")
+
+    def _cleanup_audio(self, path: str):
+        """刪除暫存錄音檔。"""
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+                logger.debug(f"Cleaned up temp audio: {path}")
+        except OSError as e:
+            logger.warning(f"Failed to clean up temp audio: {e}")
 
     def _start_processing(self, audio_path: str, translate: bool):
         """在背景線程啟動辨識 + 校對 + 貼上。"""

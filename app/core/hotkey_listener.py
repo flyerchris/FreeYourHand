@@ -1,6 +1,6 @@
 """
 FreeYourHand - 全局快捷鍵監聽模組
-偵測 Right Option 長按 / 釋放，以及 Shift 修飾鍵。
+偵測 Right Option 長按 / 釋放，Shift 修飾鍵，以及 ESC 取消鍵。
 """
 
 import threading
@@ -20,10 +20,12 @@ class HotkeyListener(QObject):
     - 長按 Right Option → 開始錄音
     - 放開 Right Option → 停止錄音
     - 同時按住 Shift → 翻譯模式
+    - 按下 ESC → 取消當前操作
     """
 
     key_pressed = pyqtSignal(bool)   # True = translate mode (shift held)
     key_released = pyqtSignal(bool)  # True = translate mode (shift was pressed during recording)
+    cancel_pressed = pyqtSignal()    # ESC pressed → cancel current action
     listener_error = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -93,6 +95,12 @@ class HotkeyListener(QObject):
         """按鍵按下事件。"""
         if not self._running:
             return False
+
+        # ESC pressed → cancel
+        if isinstance(key, keyboard.Key) and key == keyboard.Key.esc:
+            logger.debug("ESC pressed → cancel")
+            self.cancel_pressed.emit()
+            return
 
         # Track shift state
         if self._is_shift(key):

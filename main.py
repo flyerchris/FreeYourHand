@@ -66,6 +66,7 @@ class AppController:
         # Hotkey → Pipeline
         self._hotkey.key_pressed.connect(self._on_hotkey_pressed)
         self._hotkey.key_released.connect(self._on_hotkey_released)
+        self._hotkey.cancel_pressed.connect(self._on_cancel)
         self._hotkey.listener_error.connect(self._on_error)
 
         # Pipeline → Overlay
@@ -100,6 +101,11 @@ class AppController:
         """快捷鍵放開 → 停止錄音，啟動處理。"""
         self._logger.info(f"Hotkey released (translate={translate})")
         self._pipeline.stop_recording(translate=translate)
+
+    def _on_cancel(self):
+        """ESC 鍵按下 → 取消當前操作。"""
+        self._logger.info("ESC pressed, cancelling...")
+        self._pipeline.cancel()
 
     # ── State handlers ────────────────────────────────────
 
