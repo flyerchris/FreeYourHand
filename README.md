@@ -101,18 +101,4 @@ uv run main.py
 - Gemini API 的連接狀態與最終處理完畢的文字。
 - 發生的任何系統錯誤及權限問題。
 
----
 
-## 🛠️ 打包為獨立 Mac App (發佈模式)
-
-如果您希望將此工具打包成一個可以直接在 Launchpad 中點擊執行的 `FreeYourHand.app`（不用保留終端機視窗）：
-
-```bash
-# 確保打包工具已安裝
-uv pip install py2app
-
-# 執行打包腳本
-uv run python setup.py py2app
-```
-
-編譯完成後，完整的應用程式將會出現在專案底下的 `dist/FreeYourHand.app`。您可以直接將該檔案拖曳移動至您 Mac 的「應用程式 (Applications)」資料夾中直接使用。
