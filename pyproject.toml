@@ -1,0 +1,15 @@
+[project]
+name = "freeyourhand"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "google-genai>=1.0.0",
+    "mlx-whisper>=0.4.0",
+    "pyaudio>=0.2.14",
+    "pynput>=1.7.6",
+    "pyobjc-framework-cocoa>=10.0",
+    "pyperclip>=1.8.2",
+    "pyqt6>=6.6.0",
+]
