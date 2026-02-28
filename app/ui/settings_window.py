@@ -267,8 +267,8 @@ class SettingsWindow(QDialog):
 
         layout.addWidget(whisper_group)
 
-        # Custom prompt group
-        prompt_group = QGroupBox("自定義校對指令")
+        # Custom restore prompt group
+        prompt_group = QGroupBox("自定義校對指令 (中文模式)")
         prompt_layout = QVBoxLayout(prompt_group)
 
         self._prompt_edit = QTextEdit()
@@ -281,6 +281,21 @@ class SettingsWindow(QDialog):
         prompt_layout.addWidget(btn_reset_prompt, alignment=Qt.AlignmentFlag.AlignRight)
 
         layout.addWidget(prompt_group)
+
+        # Custom translate prompt group
+        translate_group = QGroupBox("自定義翻譯指令 (Shift 翻譯模式)")
+        translate_layout = QVBoxLayout(translate_group)
+
+        self._translate_prompt_edit = QTextEdit()
+        self._translate_prompt_edit.setMinimumHeight(100)
+        self._translate_prompt_edit.setPlaceholderText("留空使用預設翻譯 Prompt")
+        translate_layout.addWidget(self._translate_prompt_edit)
+
+        btn_reset_translate = QPushButton("Reset to Default")
+        btn_reset_translate.clicked.connect(self._reset_translate_prompt)
+        translate_layout.addWidget(btn_reset_translate, alignment=Qt.AlignmentFlag.AlignRight)
+
+        layout.addWidget(translate_group)
         return widget
 
     # ── Advanced Tab ──────────────────────────────────────
@@ -308,6 +323,7 @@ class SettingsWindow(QDialog):
         self._hotkey_edit.setText(self._config.hotkey)
         self._api_key_edit.setText(self._config.gemini_api_key)
         self._prompt_edit.setPlainText(self._config.prompt_restore)
+        self._translate_prompt_edit.setPlainText(self._config.prompt_translate)
 
         # Whisper model
         idx = self._whisper_combo.findText(self._config.whisper_model)
@@ -345,6 +361,10 @@ class SettingsWindow(QDialog):
         if prompt:
             self._config.set_prompt_restore(prompt)
 
+        translate_prompt = self._translate_prompt_edit.toPlainText().strip()
+        if translate_prompt:
+            self._config.set_prompt_translate(translate_prompt)
+
         # Reset Gemini client if API key changed
         if self._gemini_client:
             self._gemini_client.reset_client()
@@ -379,9 +399,14 @@ class SettingsWindow(QDialog):
             QMessageBox.information(self, "Info", "Gemini client not available for testing.")
 
     def _reset_prompt(self):
-        """重設 Prompt 為預設值。"""
+        """重設校對 Prompt 為預設值。"""
         from app.constants import PROMPT_PRECISE_RESTORE
         self._prompt_edit.setPlainText(PROMPT_PRECISE_RESTORE)
+
+    def _reset_translate_prompt(self):
+        """重設翻譯 Prompt 為預設值。"""
+        from app.constants import PROMPT_TRANSLATE
+        self._translate_prompt_edit.setPlainText(PROMPT_TRANSLATE)
 
     def _fetch_gemini_models(self):
         """從 API 動態取得可用的 Gemini 模型列表，並持久化。"""
