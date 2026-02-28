@@ -17,10 +17,10 @@ FreeYourHand 是一個針對 Mac 用戶開發的高效語音輸入工具。它�
 
 ### 1. 系統前置需求
 
-在開始之前，請確保您已經安裝了 `portaudio`（這是麥克風收音模組 `pyaudio` 的必備依賴）。您可以使用 Homebrew 來安裝：
+在開始之前，請確保您已經安裝了 `portaudio` 與 `ffmpeg`（這些是麥克風收音與語音處理的必備依賴）。您可以使用 Homebrew 來安裝：
 
 ```bash
-brew install portaudio
+brew install portaudio ffmpeg
 ```
 
 ### 2. 安裝 `uv`
