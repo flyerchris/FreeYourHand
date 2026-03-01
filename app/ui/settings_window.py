@@ -175,6 +175,7 @@ class SettingsWindow(QDialog):
         # Tab widget
         tabs = QTabWidget()
         tabs.addTab(self._create_general_tab(), "General")
+        tabs.addTab(self._create_api_tab(), "API")
         tabs.addTab(self._create_ai_tab(), "AI")
         tabs.addTab(self._create_advanced_tab(), "Advanced")
         layout.addWidget(tabs)
@@ -226,7 +227,9 @@ class SettingsWindow(QDialog):
 
     # ── AI Tab ────────────────────────────────────────────
 
-    def _create_ai_tab(self) -> QWidget:
+    # ── API Tab ────────────────────────────────────────────
+
+    def _create_api_tab(self) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
@@ -255,6 +258,14 @@ class SettingsWindow(QDialog):
         gemini_form.addRow("", self._btn_fetch)
 
         layout.addWidget(gemini_group)
+        layout.addStretch()
+        return widget
+
+    # ── AI Tab ─────────────────────────────────────────────
+
+    def _create_ai_tab(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
 
         # Whisper group
         whisper_group = QGroupBox("Whisper 模型")
